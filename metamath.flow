@@ -1,0 +1,142 @@
+import lingo/pegcode/driver;
+import fs/filesystem;
+import net/url_parameter;
+import metamath_ast;
+
+metamath_grammar = 
+"source = block:b { Source(:b) };
+block   = element*:es { Block(:es) };
+element = 
+	comment:c         { :c } |
+	disj:d            { :d } |
+	essential:e       { :e } | 
+	provable:p        { :p } | 
+	\"${\" ws block:b \"$}\" ws { :b } | 
+	axiomatic:a       { :a } | 
+	const:cs          { :cs } | 
+	var:v             { :v } | 
+	floating:f        { :f } | 
+	include:i         { :i };
+
+const     = \"$c\" s symb+:s \"$.\" ws { Const(:s) };
+var       = \"$v\" s symb+:v \"$.\" ws { Var(:v) };
+disj      = \"$d\" s symb+:d \"$.\" ws { Disj(:d) };
+
+floating  = label:l \"$f\" s symb:t symb:v \"$.\" ws { Floating(:l, :t, :v) };
+essential = label:l \"$e\" s expr:e \"$.\" ws { Essential(:l, :e) };
+axiomatic = label:l \"$a\" s expr:e \"$.\" ws { Axiomatic(:l, :e) };
+provable  = label:l \"$p\" s expr:e \"$=\" s proof:p { Provable(:l, :e, :p) };
+
+proof     = label+:l \"$.\" ws { Proof(:l) };
+expr      = symb+:s { Expr(:s) };
+
+symb      = (!s char_)+$s s { $s };
+label     = (!s char_)+$l s { $l };
+comment   = \"$(\" (!\"$)\" char_)* $c \"$)\" { Comment($c) };
+include   = \"$[\" (!\"$]\" char_)* $i \"$]\" { Include($i) };
+
+s = ws_+;
+ws = ws_*;
+ws_ = ' ' | '\\t' | '\\n' | '\\r' | comment;
+char_ = !'$' '\\u0000'-'\\uFFFF';"
+
+
+// Singleton keeping the compiled grammar
+lingoGrammarOp : ref Maybe<[PegOp]> = ref None();
+
+lingoGrammar() {
+	// Prepare the grammar in the given file using flow syntax for inlining a string from a file
+	// but be sure to only do this once
+	onlyOnce(lingoGrammarOp, \ -> {
+		compilePegGrammar(metamath_grammar);
+	});
+}
+
+TheoryEnv(
+	vars : [Var],
+	disj : [Disj],
+	hyps : [Hypothesis],
+	theory : Theory
+);
+
+produceTheory(block : Block, env : TheoryEnv) -> TheoryEnv {
+	fold(block.elements, env,
+		\e, element -> {
+			switch (element) {
+				Comment(__): e;
+				Include(__): e;
+				Var(__):
+					TheoryEnv(concat(e.vars, [element]), e.disj, e.hyps, e.theory);
+				Disj(__): 
+					TheoryEnv(e.vars, concat(e.disj, [element]), e.hyps, e.theory);
+				Const(__):
+					TheoryEnv(e.vars, e.disj, e.hyps, 
+						Theory(concat(e.theory.consts, [element]), e.theory.assertions)
+					);
+				Essential(__, __):
+					TheoryEnv(e.vars, e.disj, concat(e.hyps, [element]), e.theory);
+				Floating(__, __, __):
+					TheoryEnv(e.vars, e.disj, concat(e.hyps, [element]), e.theory);
+				Axiomatic(__, __):
+					TheoryEnv(e.vars, e.disj, e.hyps, 
+						Theory(e.theory.consts, concat(e.theory.assertions, [makeAssertion(element, env)]))
+					);
+				Provable(__, __, __):
+					TheoryEnv(e.vars, e.disj, e.hyps, 
+						Theory(e.theory.consts, concat(e.theory.assertions, [makeAssertion(element, env)]))
+					);
+				Block(__): {
+					e1 = produceTheory(element, e);
+					TheoryEnv(e.vars, e.disj, e.hyps, 
+						Theory(
+							concat(e.theory.consts, e1.theory.consts), 
+							concat(e.theory.assertions, e1.theory.assertions)
+						)
+					);
+				}
+			}
+		}
+	)
+}
+
+makeAssertion(statement : Statement, env : TheoryEnv) -> Assertion {
+	essentials = filter(env.hyps, 
+			\hyp : Hypothesis -> switch(hyp) {
+				Essential(__, __): true;
+				default: false;
+			}
+		);
+	vars = fold(essentials, getVars(statement.expr, env), 
+		\acc, ess -> mergeSets(acc, getVars(ess, env))
+	);
+	hyps = filter(env.hyps,
+		\hyp -> switch (hyp) {
+			Essential(__, __): true;
+			Floating(id, type, var): containsSet(vars, var);
+		}
+	);
+	Assertion(vars, env.disj, hyps, statement)
+}
+
+getVars(expr : Expr, env : TheoryEnv) -> Set<string> {
+	buildSet(filter(expr.symbs, \symb -> isVar(symb, env)))
+}
+
+isVar(symb : string, env : TheoryEnv) -> bool {
+	exists(env.vars, \var -> contains(var.symbs, symb))
+}
+
+main() {
+	file = getUrlParameterDef("file", "");
+	if (file == "") {
+		println("provide file name with 'file=<path>' option");
+	} else {
+		if (fileExists(file)) {
+			ast = parsic(lingoGrammar(), getFileContent(file), defaultPegActions);
+			theory = produceTheory(ast.top, TheoryEnv([], [], [], Theory([], []))).theory;
+			println(theory);
+		} else {
+			println("cannot open file " + file);
+		}
+	}
+}

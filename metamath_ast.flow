@@ -1,0 +1,37 @@
+import ds/set;
+
+export {
+
+Source(top : Block);
+
+Element ::= Comment, Disj, Essential, Provable, Block, Axiomatic, Const, Var, Floating, Include;
+	Comment(contents : string);
+	Include(file : string);
+	Disj(vars : [string]);
+	Const(symbs : [string]);
+	Var(symbs : [string]);
+	Essential(label : string, expr : Expr);
+	Floating(label : string, type : string, var : string);
+	Axiomatic(label : string, expr : Expr);
+	Provable(label : string, expr : Expr, proof : Proof);
+	Block(elements : [Element]);
+
+Proof(labels : [string]);
+Expr(symbs : [string]);
+
+Hypothesis ::= Essential, Floating;
+Statement ::= Axiomatic, Provable;
+
+Assertion(
+	vars : Set<string>,
+	disj : [Disj],
+	hyps : [Hypothesis],
+	stat : Statement
+);
+
+Theory(
+	consts : [Const],
+	assertions : [Assertion]
+);
+
+}
