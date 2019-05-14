@@ -30,7 +30,7 @@ Assertion(
 );
 
 Theory(
-	consts : [Const],
+	consts : Set<string>,
 	assertions : [Assertion]
 );
 

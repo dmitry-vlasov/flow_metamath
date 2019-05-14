@@ -56,7 +56,8 @@ TheoryEnv(
 	vars : [Var],
 	disj : [Disj],
 	hyps : [Hypothesis],
-	theory : Theory
+	consts : ref [string],
+	assertions : ref [Assertion]
 );
 
 produceTheory(block : Block, env : TheoryEnv) -> TheoryEnv {
@@ -66,33 +67,30 @@ produceTheory(block : Block, env : TheoryEnv) -> TheoryEnv {
 				Comment(__): e;
 				Include(__): e;
 				Var(__):
-					TheoryEnv(concat(e.vars, [element]), e.disj, e.hyps, e.theory);
+					TheoryEnv(concat(e.vars, [element]), e.disj, e.hyps, e.consts, e.assertions);
 				Disj(__): 
-					TheoryEnv(e.vars, concat(e.disj, [element]), e.hyps, e.theory);
-				Const(__):
-					TheoryEnv(e.vars, e.disj, e.hyps, 
-						Theory(concat(e.theory.consts, [element]), e.theory.assertions)
-					);
+					TheoryEnv(e.vars, concat(e.disj, [element]), e.hyps, e.consts, e.assertions);
+				Const(symbs): {
+					iter(symbs, \symb -> e.consts := concat(^(e.consts), [symb]));
+					e;
+				}
 				Essential(__, __):
-					TheoryEnv(e.vars, e.disj, concat(e.hyps, [element]), e.theory);
+					TheoryEnv(e.vars, e.disj, concat(e.hyps, [element]), e.consts, e.assertions);
 				Floating(__, __, __):
-					TheoryEnv(e.vars, e.disj, concat(e.hyps, [element]), e.theory);
-				Axiomatic(__, __):
-					TheoryEnv(e.vars, e.disj, e.hyps, 
-						Theory(e.theory.consts, concat(e.theory.assertions, [makeAssertion(element, env)]))
-					);
-				Provable(__, __, __):
-					TheoryEnv(e.vars, e.disj, e.hyps, 
-						Theory(e.theory.consts, concat(e.theory.assertions, [makeAssertion(element, env)]))
-					);
+					TheoryEnv(e.vars, e.disj, concat(e.hyps, [element]), e.consts, e.assertions);
+				Axiomatic(__, __): {
+					e.assertions := concat(^(e.assertions), [makeAssertion(element, env)]);
+					e;
+				}
+				Provable(__, __, __): {
+					e.assertions := concat(^(e.assertions), [makeAssertion(element, env)]);
+					e;
+				}
 				Block(__): {
-					e1 = produceTheory(element, e);
-					TheoryEnv(e.vars, e.disj, e.hyps, 
-						Theory(
-							concat(e.theory.consts, e1.theory.consts), 
-							concat(e.theory.assertions, e1.theory.assertions)
-						)
-					);
+					//println("entering...");
+					produceTheory(element, e);
+					//println("leaving");
+					e;
 				}
 			}
 		}
@@ -133,7 +131,8 @@ main() {
 	} else {
 		if (fileExists(file)) {
 			ast = parsic(lingoGrammar(), getFileContent(file), defaultPegActions);
-			theory = produceTheory(ast.top, TheoryEnv([], [], [], Theory([], []))).theory;
+			env = produceTheory(ast.top, TheoryEnv([], [], [], ref [], ref []));
+			theory = Theory(buildSet(^(env.consts)), ^(env.assertions));
 			println(theory);
 		} else {
 			println("cannot open file " + file);
