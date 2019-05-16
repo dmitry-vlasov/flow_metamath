@@ -1,3 +1,17 @@
+
+
+  $( Declare the primitive constant symbols for propositional calculus. $)
+
+    $( Define the syntax and logical typecodes, and declare that our grammar is
+     unambiguous (verifiable using the KLR parser, with compositing depth 5).
+     (This j comment need not be read by verifiers, but is useful for parsers
+     like mmj2.) $)
+  $(
+    syntax 'wff';
+    syntax '|-' as 'wff';
+    unambiguous 'klr 5';
+  $)
+  
 $c |- $.
 $c ( $.
 $c ) $.

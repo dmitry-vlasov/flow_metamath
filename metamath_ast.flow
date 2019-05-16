@@ -25,13 +25,15 @@ Statement ::= Axiomatic, Provable;
 Assertion(
 	vars : Set<string>,
 	disj : [Disj],
-	hyps : [Hypothesis],
-	stat : Statement
+	hypsList : [Hypothesis],
+	hypsMap : Tree<string, Hypothesis>,
+	statement : Statement
 );
 
 Theory(
 	consts : Set<string>,
-	assertions : [Assertion]
+	assertionList : [Assertion],
+	assertionMap : Tree<string, Assertion>
 );
 
 }
