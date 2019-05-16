@@ -1,5 +1,5 @@
 # flow_metamath
-Metamath implementation in flow language
+[Metamath](http://us.metamath.org/) implementation in [flow9](https://github.com/area9innovation/flow9) language
 
 1.  Make sure, that python, java and jre is installed on your machine
 
