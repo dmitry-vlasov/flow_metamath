@@ -13,9 +13,9 @@ Metamath implementation in flow language
 
 5. Build metamath.jar with command:
 
-    build-with-flowc1 file=metamath.flow
+    `build-with-flowc1 file=metamath.flow`
 
 6. Run a test file with command:
 
-    java -jar metamath.jar file=uset-100000.mm
+    `java -jar metamath.jar file=uset-100000.mm`
 
