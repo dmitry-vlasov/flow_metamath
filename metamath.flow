@@ -334,7 +334,7 @@ main() {
 				getFileContent(file), 
 				SemanticActions(setTree(defaultPegActions.t, "createSymb", \s -> Symb(s[0], false)))
 			);
-			println("parsing time: " + d2st((timestamp() - parsing_start_time) / 1000.0, 2) + "s");
+			println("\tparsing time: " + d2st((timestamp() - parsing_start_time) / 1000.0, 2) + "s");
 			
 			theory_building_start_time = timestamp();
 			env = produceTheory(ast.top, TheoryEnv(makeSet(), makeList(), makeList(), makeTree(), makeSet(), makeList()));
@@ -353,20 +353,20 @@ main() {
 				)),
 				env.labeled
 			);
-			println("theory building time: " + d2st((timestamp() - theory_building_start_time) / 1000.0, 2) + "s");
+			println("\ttheory building time: " + d2st((timestamp() - theory_building_start_time) / 1000.0, 2) + "s");
 			axiom_count = fold(theory.assertions, 0, 
 				\acc, a -> switch(a.statement) {
 					Axiomatic(__,__): acc + 1;
 					Provable(__,__,__): acc;
 				}
 			);
-			println("there are " + i2s(length(theory.assertions)) + " assertions, " + 
-				i2s(axiom_count) + " are axioms and " + i2s(length(theory.assertions) - axiom_count) + " are theorems");
 			
 			verification_start_time = timestamp();
 			verifyTheory(theory);
-			println("verification time: " + d2st((timestamp() - verification_start_time) / 1000.0, 2) + "s");
+			println("\tverification time: " + d2st((timestamp() - verification_start_time) / 1000.0, 2) + "s");
 			
+			println("there are " + i2s(length(theory.assertions)) + " assertions, " + 
+				i2s(axiom_count) + " are axioms and " + i2s(length(theory.assertions) - axiom_count) + " are theorems");
 			println("Total processing time: " + d2st((timestamp() - total_start_time) / 1000.0, 2) + "s");
 		} else {
 			println("cannot open file " + file);
