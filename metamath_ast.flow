@@ -2,38 +2,111 @@ import ds/set;
 
 export {
 
-Source(top : Block);
+	Source(top : Block);
 
-Element ::= Comment, Disj, Essential, Provable, Block, Axiomatic, Const, Var, Floating, Include;
-	Comment(contents : string);
-	Include(file : string);
-	Disj(vars : [string]);
-	Const(symbs : [string]);
-	Var(symbs : [string]);
-	Essential(label : string, expr : Expr);
-	Floating(label : string, type : string, var : string);
-	Axiomatic(label : string, expr : Expr);
-	Provable(label : string, expr : Expr, proof : Proof);
-	Block(elements : [Element]);
+	Element ::= Comment, Disj, Essential, Provable, Block, Axiomatic, Const, Var, Floating, Include;
+		Comment(contents : string);
+		Include(file : string);
+		Disj(vars : [string]);
+		Const(symbs : [string]);
+		Var(symbs : [string]);
+		Essential(label : string, expr : Expr);
+		Floating(label : string, type : string, var : string);
+		Axiomatic(label : string, expr : Expr);
+		Provable(label : string, expr : Expr, proof : Proof);
+		Block(elements : [Element]);
 
-Proof(labels : [string]);
-Expr(symbs : [string]);
+	Proof(labels : [string]);
+	Expr(symbs : [Symb]);
+	Symb(literal : string, isVar : bool);
 
-Hypothesis ::= Essential, Floating;
-Statement ::= Axiomatic, Provable;
+	Hypothesis ::= Essential, Floating;
+	Statement ::= Axiomatic, Provable;
 
-Assertion(
-	vars : Set<string>,
-	disj : [Disj],
-	hypsList : [Hypothesis],
-	hypsMap : Tree<string, Hypothesis>,
-	statement : Statement
-);
+	Assertion(
+		disj : [Disj],
+		hyps : [Hypothesis],
+		statement : Statement
+	);
 
-Theory(
-	consts : Set<string>,
-	assertionList : [Assertion],
-	assertionMap : Tree<string, Assertion>
-);
+	Labeled ::= Hypothesis, Assertion;
 
+	Theory(
+		assertions : [Assertion],
+		labeled : Tree<string, Labeled>
+	);
+
+	applySubstitution(expr : Expr, subst : Tree<string, Expr>) -> Expr;
+	equalExprs(e1 : Expr, e2 : Expr) -> bool;
+
+	expr2s(e : Expr) -> string;
+	subst2s(s : Tree<string, Expr>) -> string;
+	stack2s(s : List<Expr>) -> string;
+	statement2s(s : Statement) -> string;
+	hypothesis2s(h : Hypothesis) -> string;
+	disj2s(d : Disj) -> string;
+	assertion2s(a : Assertion) -> string;
 }
+
+applySubstitution(expr : Expr, subst : Tree<string, Expr>) -> Expr {
+	applied = ref [];
+	iter(expr.symbs, \symb ->
+		switch (lookupTree(subst, symb.literal)) {
+			Some(e): iter(e.symbs, \s -> refArrayPush(applied, s));
+			None(): refArrayPush(applied, symb);
+		}
+	);
+	Expr(^applied)
+}
+
+equalExprs(e1 : Expr, e2 : Expr) -> bool {
+	length(e1.symbs) == length(e2.symbs) &&
+	forall(
+		zipWith(e1.symbs, e2.symbs, \s1, s2 -> Pair(s1, s2)), 
+		\p -> p.first.literal == p.second.literal && p.first.isVar == p.second.isVar
+	)
+}
+
+expr2s(e : Expr) -> string {
+	strGlue(map(e.symbs, \symb -> symb.literal + if (symb.isVar) "*" else ""), " ")
+}
+
+subst2s(s : Tree<string, Expr>) -> string {
+	foldTree(s, "", \var, expr, str -> str + "\n" + var + " --> " + expr2s(expr))
+}
+
+stack2s(s : List<Expr>) -> string {
+	foldList(s, "", \acc, e -> acc + "\n\t" + expr2s(e)) + "\n";
+}
+
+statement2s(s : Statement) -> string {
+	switch (s) {
+		Axiomatic(label, expr): 
+			label + " $a " + expr2s(expr) + " $.";
+		Provable(label, expr, proof): 
+			label + " $a " + expr2s(expr) + " $= " + 
+			strGlue(proof.labels, " ") + " $.";
+	}
+}
+
+hypothesis2s(h : Hypothesis) -> string {
+	switch (h) {
+		Floating(label, type, var): 
+			label + " $f " + type + " " + var + " $.";
+		Essential(label, expr): 
+			label + " $e " + expr2s(expr) + " $.";
+	}
+}
+
+disj2s(d : Disj) -> string {
+	"$d " + strGlue(d.vars, " ") + " $."
+}
+
+assertion2s(a : Assertion) -> string {
+	"${\n" +
+		fold(a.disj, "", \acc, d -> acc + "\t" + disj2s(d) + "\n") +
+		fold(a.hyps, "", \acc, h -> acc + "\t" + hypothesis2s(h) + "\n") +
+		"\t" + statement2s(a.statement) + "\n" +
+	"$}"
+}
+
