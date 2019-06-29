@@ -37,7 +37,6 @@ export {
 	);
 
 	applySubstitution(expr : Expr, subst : Tree<string, Expr>) -> Expr;
-	equalExprs(e1 : Expr, e2 : Expr) -> bool;
 
 	expr2s(e : Expr) -> string;
 	subst2s(s : Tree<string, Expr>) -> string;
@@ -57,14 +56,6 @@ applySubstitution(expr : Expr, subst : Tree<string, Expr>) -> Expr {
 		}
 	);
 	Expr(^applied)
-}
-
-equalExprs(e1 : Expr, e2 : Expr) -> bool {
-	length(e1.symbs) == length(e2.symbs) &&
-	forall(
-		zipWith(e1.symbs, e2.symbs, \s1, s2 -> Pair(s1, s2)), 
-		\p -> p.first.literal == p.second.literal && p.first.isVar == p.second.isVar
-	)
 }
 
 expr2s(e : Expr) -> string {

@@ -7,16 +7,9 @@ metamath_grammar =
 	"source = ws block:b { Source(:b) };
 	block   = element*:es { Block(:es) };
 	element = 
-		comment:c         { :c } |
-		disj:d            { :d } |
-		essential:e       { :e } | 
-		provable:p        { :p } | 
+		comment | disj | essential | provable | 
 		\"${\" ws block:b \"$}\" ws { :b } | 
-		axiomatic:a       { :a } | 
-		const:cs          { :cs } | 
-		var:v             { :v } | 
-		floating:f        { :f } | 
-		include:i         { :i };
+		axiomatic | const | var | floating | include;
 
 	const     = \"$c\" s string+:s \"$.\" ws { Const(:s) };
 	var       = \"$v\" s string+:v \"$.\" ws { Var(:v) };
@@ -50,7 +43,7 @@ TheoryEnv(
 	statements : List<Statement>
 );
 
-produceTheory(block : Block, env : TheoryEnv) -> TheoryEnv {
+produceTheoryEnv(block : Block, env : TheoryEnv) -> TheoryEnv {
 	fold(block.elements, env,
 		\e, element -> {
 			switch (element) {
@@ -75,7 +68,7 @@ produceTheory(block : Block, env : TheoryEnv) -> TheoryEnv {
 					TheoryEnv(e.vars, e.disj, e.hyps, setTree(e.labeled, label, assertion), e.consts, Cons(assertion.statement, e.statements));
 				}
 				Block(__): {
-					block_env = produceTheory(element, e);
+					block_env = produceTheoryEnv(element, e);
 					TheoryEnv(e.vars, e.disj, e.hyps, block_env.labeled, block_env.consts, block_env.statements);
 				}
 			}
@@ -248,7 +241,7 @@ executeRPNstep(label : string, mstack : Maybe<List<Expr>>, entities : Tree<strin
 								\acc -> {
 									if (forall(list2array(acc.essentials), \pair -> {
 											applied = applySubstitution(pair.fromHyp, acc.subst);
-											if (!equalExprs(applied, pair.fromStack)) {
+											if (applied != pair.fromStack) {
 												handleError("applied expression differs from stack value: " + expr2s(applied) + " != " + expr2s(pair.fromStack));
 												false;
 											} else {
@@ -293,7 +286,7 @@ verifyAssertion(assertion : Assertion, theory : Theory) -> bool {
 					if (!isEmptyList(tailList(stack))) {
 						handleError("non-empty stack at the end of proof");
 						false;
-					} else if (!equalExprs(expr, headList(stack, Expr([])))) {
+					} else if (expr != headList(stack, Expr([]))) {
 						head = headList(stack, Expr([]));
 						handleError("expression on the top of the stack differs from provable expression: " + expr2s(expr) + " != " + expr2s(head));
 						false;
@@ -337,7 +330,7 @@ main() {
 			println("\tparsing time: " + d2st((timestamp() - parsing_start_time) / 1000.0, 2) + "s");
 			
 			theory_building_start_time = timestamp();
-			env = produceTheory(ast.top, TheoryEnv(makeSet(), makeList(), makeList(), makeTree(), makeSet(), makeList()));
+			env = produceTheoryEnv(ast.top, TheoryEnv(makeSet(), makeList(), makeList(), makeTree(), makeSet(), makeList()));
 			theory = Theory(
 				reverseA(foldList(env.statements, [], \acc, statement -> {
 						switch (lookupTree(env.labeled, statement.label)) {
